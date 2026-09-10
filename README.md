@@ -5,8 +5,26 @@ Demo site for a web development talk using jsPsych.
 ReactとjsPsychによる、小規模ウェブ実験の開発デモです。
 「同じ提案でも、希望を理解したことを示す一言によって、理解された感覚は変わるか」を題材にします。
 
-**現在は実装計画の段階です。アプリ、API、データベース、実行コマンドはまだ実装していません。**
+**React・jsPsych・Workers API・D1を接続したFull-stack Hello Worldを実装し、Cloudflareへデプロイしました。**
+研究計画の実験条件・複数場面・途中再開などは今後の実装対象です。
 計画の基準日: 2026-09-11。
+
+## Hello Worldを動かす
+
+公開サイト: <https://jspsych-demo-hello.jspsych-demo.workers.dev/>
+
+Devboxを使って、ローカルのNode.js・Worker・D1を準備します。
+
+```sh
+devbox install
+devbox run setup
+devbox run dev
+```
+
+ブラウザーで`http://127.0.0.1:5173/`を開きます。
+開始後の「こんにちは」がjsPsychの試行です。回答と反応時間をAPIへ送り、D1への保存確認後に完了画面を表示します。
+ローカルD1と公開D1は別のデータベースです。
+検証・再デプロイ・DB確認は[Hello Worldの開発・デプロイ手順](docs/deployment.md)を参照してください。
 
 ## 目的
 
@@ -15,6 +33,8 @@ ReactとjsPsychによる、小規模ウェブ実験の開発デモです。
 講演資料、スライド、進行台本、参加者向けの技術解説画面は今回の対象外です。
 
 ## 合意した要件
+
+以下は本実験に向けた計画です。現在のHello Worldは、技術構成を確認する1試行のデモです。
 
 | 項目 | 方針 |
 | --- | --- |
@@ -39,6 +59,7 @@ ReactとjsPsychによる、小規模ウェブ実験の開発デモです。
 
 | ファイル | 内容 |
 | --- | --- |
+| [開発・デプロイ手順](docs/deployment.md) | 実装済みHello WorldのDevbox環境、起動、公開、DB確認、検証結果 |
 | [研究計画](docs/research-plan.md) | 仮説、刺激案、割り当て、評価、分析方針、研究実施前の未確定事項 |
 | [アーキテクチャ](docs/architecture.md) | 実行場所、ビルド、React/jsPsychの境界、公開構成、技術選定の理由 |
 | [データと再開の契約](docs/data-contract.md) | API、DB、逐次保存、重複防止、再開、保持期限、CSV |
@@ -65,9 +86,9 @@ Node.js、npm、Viteは主に開発・ビルド用で、参加者のPCにイン�
 
 ## 次の開発段階
 
-[実装計画のP0](docs/implementation-plan.md#p0-プロジェクトと実行環境)から着手します。
-まずローカルで画面配信・API・ローカルD1の接続を確認し、その後に実験と再開処理を組み込みます。
-現時点で実行可能な`npm`スクリプトや公開URLはありません。
+[実装計画のP0](docs/implementation-plan.md#p0-プロジェクトと実行環境)に相当する最小接続を実装しました。
+次に、被験者間条件の研究計画に沿った実験と再開処理を組み込みます。
+現段階の実装範囲と本実験との差分は[開発・デプロイ手順](docs/deployment.md#実装範囲)に記載しています。
 
 実装が動くことと、参加者募集を始められることは別です。
 研究責任者、連絡先、説明・同意文、募集条件などは[研究計画の公開前確認](docs/research-plan.md#公開前に確定する事項)に残しています。
