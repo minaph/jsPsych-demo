@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "jspsych-demo-hello",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-09-10",
+  "workers_dev": true,
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "jspsych-demo-hello-db",
+      "database_id": "4e3ba16b-b78f-44a5-84e1-f96758e15b27",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["17 * * * *"]
+  },
+  "observability": {
+    "enabled": false
+  }
+}
