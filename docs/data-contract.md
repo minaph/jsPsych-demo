@@ -8,7 +8,7 @@
 1. 回答確定時にブラウザー内へ保存してから、次の場面へ進む。
 2. APIへの送信は場面ごとに行い、未送信・送信中・保存確認済みを区別する。
 3. 同じ回答の再送は同じ結果に収束し、異なる回答で既存行を上書きしない。
-4. 全8場面をDBで確認できるまで参加完了にしない。
+4. 全4場面をDBで確認できるまで参加完了にしない。
 5. 24時間は開始からの再開・送信可能期限、30日はDB内の保持期限とする。再開で期限を延長しない。
 
 ## 参加IDと認証
@@ -20,7 +20,8 @@ D1にはトークンのSHA-256ハッシュだけを保存し、平文はブラ�
 トークンをURL、CSV、アプリログに含めません。ログインや本人確認を実装する仕組みではありません。
 
 開始通信が失敗しても同じID・トークンで再送します。
-同じIDでトークンが一致すれば、既存の割り当てと期限を返し、別のセッションを増やしません。
+新規作成時にだけサーバーで各50%の確率による独立した2群割り当てを行い、両群共通の4場面の順番を別にランダム化して保存します。人数を揃えるための調整は行いません。
+同じIDでトークンが一致すれば、既存の割り当てと期限を返し、別のセッションを増やしません。同時作成の競合でも、DBに保存された群とmanifestを返し、呼び出しごとに異なる割り当てを返さないようにします。
 IDが既存でもトークンが異なる場合は内容を返しません。
 
 ## API案
@@ -28,10 +29,10 @@ IDが既存でもトークンが異なる場合は内容を返しません。
 | メソッド / パス | 入力・用途 | 結果 |
 | --- | --- | --- |
 | `GET /api/config` | 説明文、現行バージョン、受付状態 | 公開情報のみ |
-| `POST /api/sessions` | `session_id`, `study_version`, `consent_version`, `consent: true` とトークン | 作成時刻、期限、L0/L1、場面順、固定された刺激を含むmanifest |
+| `POST /api/sessions` | `session_id`, `study_version`, `consent_version`, `consent: true` とトークン | 作成時刻、期限、割り当て群（`acknowledge` / `neutral`）、4場面の順番、固定された刺激を含むmanifest |
 | `GET /api/sessions/:id` | トークンで認証し進捗を照合 | manifest、保存済み回答、状態、サーバー時刻 |
 | `PUT /api/sessions/:id/trials/:trialId` | 1場面の回答 | 保存済みのtrialId。新規201、同一再送200 |
-| `POST /api/sessions/:id/complete` | 全課題終了の申告 | 全8件確認後に完了。同一再送も成功 |
+| `POST /api/sessions/:id/complete` | 全課題終了の申告 | 全4件確認後に完了。同一再送も成功 |
 
 `/api/*`の存在しないパスはJSONの404。すべてのAPI応答はキャッシュしません。
 未同意の作成、旧版の新規開始、受付停止中の新規開始は拒否します。
@@ -49,7 +50,7 @@ APIとDBの時刻はUTC。保持期限と完了時刻はサーバーで決めま
 
 | テーブル | 主な列 | 制約・目的 |
 | --- | --- | --- |
-| `sessions` | `session_id`, `token_hash`, `study_version`, `consent_version`, `assignment_list`, `manifest_json`, `created_at`, `resume_expires_at`, `delete_after`, `completed_at` | IDが主キー。manifestは開始後変更しない |
+| `sessions` | `session_id`, `token_hash`, `study_version`, `consent_version`, `assigned_condition`, `manifest_json`, `created_at`, `resume_expires_at`, `delete_after`, `completed_at` | IDが主キー。assigned_conditionはacknowledge / neutralに限定し、群とmanifestは開始後変更しない |
 | `trials` | `session_id`, `trial_id`, `scene_id`, `condition`, `presentation_index`, `understanding`, `usefulness`, `rt_ms`, `segment_id`, `segment_started_at`, `resume_count`, `presentation_attempt`, `client_answered_at`, `received_at`, `payload_hash` | `(session_id, trial_id)`が主キー。セッションへの外部キー、削除はCASCADE |
 
 `trials`には`(session_id, presentation_index)`の一意制約、尺度値の1〜7チェックも付けます。
@@ -57,8 +58,9 @@ APIとDBの時刻はUTC。保持期限と完了時刻はサーバーで決めま
 状態は`completed_at`があれば完了、なければ途中とし、24時間経過後は期限切れの途中回答として扱います。
 研究用の人物IDと実験セッションIDを二重に増やさず、今回のランダム参加IDは`session_id`に統一します。
 
-`manifest_json`にはschema/studyバージョン、8場面の順番、trialId、条件、提示文と質問文を保存します。
-これにより、24時間内に新しい版を公開しても、元の提示文で再開できます。
+`manifest_json`にはschema/studyバージョン、割り当て群（`assigned_condition`）、両群共通のS01〜S04の順番、trialId、条件、提示文と質問文を保存します。
+4場面の条件はすべて`assigned_condition`と一致させ、APIで整合性を検証します。
+これにより、24時間内に新しい版を公開しても、元の群・順番・提示文で再開できます。
 少なくとも有効なセッションが存在する間は旧schemaの読み取りを維持します。対応できない変更では再開を止め、新旧回答を同一セッションに混ぜません。
 
 回答DTOの概念例:
@@ -115,7 +117,7 @@ sequenceDiagram
 APIで新たに付けた受信時刻は比較に含めません。
 同じ主キーかつ同じ内容なら成功を返し、異なる内容なら409として元の値を保持します。
 並行リクエストでも一意制約とDB処理によって保証し、単純な「先にSELECTして存在しなければINSERT」だけに頼りません。
-完了は、manifestに対応する全8件の存在を条件としたDB更新で確定します。
+完了は、manifestに対応する全4件の存在を条件としたDB更新で確定します。
 
 ## 再開とローカル保存
 
@@ -163,7 +165,7 @@ Cloudflareのログ・保存地域・契約条件の確認は公開時の運用�
 
 既定では保持期限内の完了セッションのみを取得し、`--include-incomplete`で未完了も取得します。
 1行1試行のUTF-8 CSVと、取得時刻・対象環境・抽出条件・schema版を記録した小さなメタデータファイルを出力します。
-CSV列は参加ID、状態、study/consent版、割り当て、場面、条件、順序、2評価、所要時間、区間・再開回数・再提示情報、各時刻です。
+CSV列は参加ID、状態、study/consent版、割り当て群（`assigned_condition`）、場面、試行条件（群と一致）、順序、2評価、所要時間、区間・再開回数・再提示情報、各時刻です。
 再開トークン・ハッシュ、内部設定、個人の連絡先は出力しません。
 DBの結果上限を確認し、必要なら安定した主キーでページングして、取得件数とDB件数を照合します。
 
