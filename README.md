@@ -5,13 +5,13 @@ Demo site for a web development talk using jsPsych.
 ReactとjsPsychによる、小規模ウェブ実験の開発デモです。
 「同じ提案でも、希望を理解したことを示す一言によって、理解された感覚は変わるか」を題材にします。
 
-**React・jsPsych・Workers API・D1を接続したFull-stack Hello Worldを実装し、Cloudflareへデプロイしました。**
-研究計画の実験条件・複数場面・途中再開などは今後の実装対象です。
+**被験者間2群・4場面の実験、逐次保存、24時間以内の再開、CSV取得を実装しました。**
+公開先は合成データによる技術検証用です。実参加者の募集・研究実施の承認を意味しません。
 計画の基準日: 2026-09-11。
 
-## Hello Worldを動かす
+## 実験デモを動かす
 
-公開サイト: <https://jspsych-demo-hello.jspsych-demo.workers.dev/>
+公開サイト: <https://jspsych-demo-staging.jspsych-demo.workers.dev/>
 
 Devboxを使って、ローカルのNode.js・Worker・D1を準備します。
 
@@ -22,9 +22,21 @@ devbox run dev
 ```
 
 ブラウザーで`http://127.0.0.1:5173/`を開きます。
-開始後の「こんにちは」がjsPsychの試行です。回答と反応時間をAPIへ送り、D1への保存確認後に完了画面を表示します。
+説明への同意後、4つの場面について理解感・有用性を各1〜7で評価します。各場面のDB保存確認後に次へ進み、4件の保存で完了します。
 ローカルD1と公開D1は別のデータベースです。
-検証・再デプロイ・DB確認は[Hello Worldの開発・デプロイ手順](docs/deployment.md)を参照してください。
+検証・再デプロイ・CSV取得は[実験デモの運用手順](docs/study-deployment.md)を参照してください。
+既存の[Hello World](https://jspsych-demo-hello.jspsych-demo.workers.dev/)は変更せず残しています。旧手順は[履歴資料](docs/deployment.md)です。
+
+```sh
+devbox run check
+devbox run -- npm run test:api       # ローカルサーバー起動中
+devbox run -- npm run test:e2e       # Chromeを使用
+devbox run -- npm run db:migrate:demo
+devbox run -- npm run deploy:demo
+devbox run -- npm run data:export -- --target demo --output exports/demo
+```
+
+CSVは `demo.completed-trials.csv`、`demo.incomplete-trials.csv`、`demo.sessions.csv`、`demo.metadata.json` の4ファイルです。既存ファイルは上書きしません。
 
 ## 目的
 
@@ -34,7 +46,7 @@ devbox run dev
 
 ## 合意した要件
 
-以下は本実験に向けた計画です。現在のHello Worldは、技術構成を確認する1試行のデモです。
+以下の技術要件を実験デモに反映しています。研究上の承認・必要人数・募集条件は別途確定が必要です。
 
 | 項目 | 方針 |
 | --- | --- |
@@ -53,13 +65,15 @@ devbox run dev
 | 環境 | ローカルと合成データ用の公開Worker/D1を1組。無料枠を中心に構成する |
 
 場面数は**1人4場面、全場面で割り当てられた同一条件**とします。両群に共通のS01〜S04を用い、提示順だけをランダム化する設計案です。群の人数を厳密に揃える処理は設けず、再開時も群と提示順を維持します。約5分という時間目安は、場面削減後の予備実施で見直します。
-100〜500名は運用上の想定範囲であり、検出力を確認済みの必要人数ではありません。今回の取得検証は少数の代表例を対象とし、500件規模の取得確認は将来の運用前に行います。
+100〜500名は運用上の想定範囲であり、検出力を確認済みの必要人数ではありません。ローカルでは追加検証として500完了セッション・2,000試行の合成データをCSVと照合しました。公開環境での同時利用・性能保証ではありません。
 
 ## 計画ドキュメント
 
 | ファイル | 内容 |
 | --- | --- |
 | [開発・デプロイ手順](docs/deployment.md) | 実装済みHello WorldのDevbox環境、起動、公開、DB確認、検証結果 |
+| [実験デモの運用手順](docs/study-deployment.md) | 現行の起動・公開・CSV・受付停止・保持期限 |
+| [実装検証記録](docs/implementation-verification.md) | 実行環境、検証結果、Reviewer指摘と対応、残る運用確認 |
 | [受け入れ基準](docs/acceptance-criteria.md) | 監査で確定した仕様、合否の判定方法、対象外と未検証事項 |
 | [研究計画](docs/research-plan.md) | 仮説、刺激案、割り当て、評価、分析方針、研究実施前の未確定事項 |
 | [アーキテクチャ](docs/architecture.md) | 実行場所、ビルド、React/jsPsychの境界、公開構成、技術選定の理由 |
@@ -85,12 +99,9 @@ APIは公開後にはCloudflareのWorkersランタイムで動きます。
 Node.js、npm、Viteは主に開発・ビルド用で、参加者のPCにインストールするものではありません。
 具体的な技術的根拠は[アーキテクチャの公式資料](docs/architecture.md#公式資料)を参照してください。
 
-## 次の開発段階
+## 完成範囲と研究準備
 
-[実装計画のP0](docs/implementation-plan.md#p0-プロジェクトと実行環境)に相当する最小接続を実装しました。
-次に、被験者間条件の研究計画に沿った実験と再開処理を組み込みます。
-現段階の実装範囲と本実験との差分は[開発・デプロイ手順](docs/deployment.md#実装範囲)に記載しています。
-目標の完成条件は、Wranglerで公開し、公開URLで4場面の参加フロー・DB保存・CSV取得・通常の再開を確認できることです。障害時の挙動と期限削除はローカルで検証し、公開Cronは設定確認までを完成条件とします。[受け入れ基準](docs/acceptance-criteria.md)の確定は、これらの実装や検証の完了を意味しません。
+実装は `docs` の最終精査（`ddd765b`）に従います。公開URLでの4場面・保存・通常再開・CSV照合と、ローカルの障害・期限削除の確認結果は[実装検証記録](docs/implementation-verification.md)にまとめます。公開Cronの設定確認と実行成功確認は区別します。
 
 実装が動くことと、参加者募集を始められることは別です。
 研究責任者、連絡先、説明・同意文、募集条件などは[研究計画の公開前確認](docs/research-plan.md#公開前に確定する事項)に残しています。
