@@ -1,0 +1,16 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.18.0/.schema/devbox.schema.json",
+  "packages": ["nodejs@24"],
+  "env": {
+    "WRANGLER_SEND_METRICS": "false"
+  },
+  "shell": {
+    "scripts": {
+      "setup": "npm ci && npm run db:migrate:local",
+      "dev": "npm run dev",
+      "check": "npm run check",
+      "build": "npm run build",
+      "deploy": "npm run deploy"
+    }
+  }
+}

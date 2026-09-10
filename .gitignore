@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.devbox/
+.wrangler/
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+exports/
+playwright-report/
+test-results/
+.playwright-cli/
+.DS_Store
