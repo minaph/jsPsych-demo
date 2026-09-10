@@ -1,9 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "jspsych-demo-hello",
+  "name": "jspsych-demo-local",
   "main": "worker/index.ts",
   "compatibility_date": "2026-09-10",
   "workers_dev": true,
+  "vars": { "COLLECTION_ENABLED": "true", "TEST_ONLY": "true" },
   "assets": {
     "not_found_handling": "single-page-application",
     "run_worker_first": ["/api/*"]
@@ -11,8 +12,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "jspsych-demo-hello-db",
-      "database_id": "4e3ba16b-b78f-44a5-84e1-f96758e15b27",
+      "database_name": "jspsych-demo-local-db",
+      "database_id": "local-study-only",
       "migrations_dir": "migrations"
     }
   ],
@@ -21,5 +22,13 @@
   },
   "observability": {
     "enabled": false
+  },
+  "env": {
+    "demo": {
+      "name": "jspsych-demo-staging",
+      "vars": { "COLLECTION_ENABLED": "true", "TEST_ONLY": "true" },
+      "d1_databases": [{ "binding": "DB", "database_name": "jspsych-demo-staging-db", "database_id": "c845b0dd-7e3c-46a6-8b13-04b2674dce6b", "migrations_dir": "migrations" }],
+      "triggers": { "crons": ["17 * * * *"] }
+    }
   }
 }

@@ -1,147 +1,63 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { HelloAnswer, SavedAnswer } from "../shared/contracts";
-import { HelloTrial } from "./HelloTrial";
-
-type Stage = "intro" | "running" | "saving" | "complete" | "save-error" | "trial-error";
-type Connection = "checking" | "ready" | "error";
-
+import { useEffect, useRef, useState } from "react";
+import { LOCK_KEY, SessionController } from "./session";
+import type { State } from "./session";
+import { StudyTrial } from "./StudyTrial";
 export function App() {
-  const [stage, setStage] = useState<Stage>("intro");
-  const [connection, setConnection] = useState<Connection>("checking");
-  const [healthAttempt, setHealthAttempt] = useState(0);
-  const [attemptId, setAttemptId] = useState("");
-  const pending = useRef<HelloAnswer | null>(null);
-  const submitting = useRef(false);
-  const heading = useRef<HTMLHeadingElement>(null);
-
+  const [state, setState] = useState<State>({ stage: "loading", message: "", retry: false, busy: false, retryAt: 0, tick: 0 });
+  const [consent, setConsent] = useState(false);
+  const [width, setWidth] = useState(window.innerWidth);
+  const controller = useRef<SessionController | null>(null);
   useEffect(() => {
-    const controller = new AbortController();
-    let disposed = false;
-    setConnection("checking");
-    const timeout = window.setTimeout(() => controller.abort(), 10_000);
-    void fetch("/api/health", { signal: controller.signal, cache: "no-store" })
-      .then(async response => {
-        if (!response.ok) throw new Error("unavailable");
-        const health = await response.json();
-        if (health.ok !== true || health.database !== "connected") throw new Error("invalid_health");
-        setConnection("ready");
-      })
-      .catch(() => { if (!disposed) setConnection("error"); })
-      .finally(() => window.clearTimeout(timeout));
-    return () => { disposed = true; controller.abort(); window.clearTimeout(timeout); };
-  }, [healthAttempt]);
-
-  useEffect(() => {
-    if (stage === "complete" || stage === "save-error" || stage === "trial-error") heading.current?.focus();
-  }, [stage]);
-
-  const save = useCallback(async (answer: HelloAnswer) => {
-    if (submitting.current) return;
-    submitting.current = true;
-    setStage("saving");
-    try {
-      const response = await fetch("/api/responses", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(answer),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!response.ok) throw new Error("save_failed");
-      const saved = await response.json() as SavedAnswer;
-      if (saved.id !== answer.id || saved.response !== answer.response || saved.rtMs !== answer.rtMs || !saved.savedAt) {
-        throw new Error("invalid_confirmation");
-      }
-      pending.current = null;
-      setStage("complete");
-    } catch {
-      setStage("save-error");
-    } finally {
-      submitting.current = false;
-    }
+    const resize = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
-
-  const onAnswer = useCallback((rtMs: number) => {
-    const answer: HelloAnswer = { id: attemptId, response: "hello", rtMs };
-    pending.current = answer;
-    void save(answer);
-  }, [attemptId, save]);
-
-  const onTrialError = useCallback(() => setStage("trial-error"), []);
-
-  function start() {
-    pending.current = null;
-    setAttemptId(crypto.randomUUID());
-    setStage("running");
-  }
-
-  return (
-    <div className="page">
-      <header className="site-header">
-        <a className="wordmark" href="/" aria-label="jsPsych demo ホーム"><span className="brand-mark" aria-hidden="true" />jsPsych demo</a>
-        <span className="edition">HELLO WORLD / 001</span>
-      </header>
-
-      <main>
-        <section className="intro-heading" aria-label="デモの紹介">
-          <p className="eyebrow">A SMALL BEGINNING</p>
-          <h1>ひとつの回答から、<br /><span>はじめよう。</span></h1>
-          <p className="lead">ブラウザーで体験する、小さな実験。</p>
-        </section>
-
-        <section className="trial-card" aria-label="接続確認デモ" aria-busy={stage === "saving"}>
-          <div className="card-topline">
-            <span>01 <span className="topline-divider">/</span> FIRST CONTACT</span>
-            <span className={`connection ${connection}`} role="status">
-              <span aria-hidden="true" />
-              {connection === "ready" ? "接続済み" : connection === "checking" ? "接続を確認中" : "接続できません"}
-            </span>
-          </div>
-
-          {stage === "intro" && <div className="card-content">
-            <span className="orbit" aria-hidden="true"><span /></span>
-            <h2>まずは、あいさつを。</h2>
-            <p>短い画面をひとつ体験して、<br />回答が届くことを確認するデモです。</p>
-            <button className="primary-button" disabled={connection !== "ready"} onClick={start}>デモを始める <span aria-hidden="true">↗</span></button>
-            <p className="duration">1試行 · 約15秒</p>
-            {connection === "error" && <div className="inline-error" role="alert">
-              <p>接続を確認できませんでした。</p>
-              <button className="text-button" onClick={() => setHealthAttempt(n => n + 1)}>接続を再確認する</button>
-            </div>}
+  useEffect(() => {
+    let disposed = false; let release: (() => void) | undefined;
+    const timer = setTimeout(() => {
+      if (!navigator.locks || !crypto?.randomUUID || !crypto.subtle || !window.isSecureContext) {
+        setState(s => ({ ...s, stage: "blocked", message: "この環境では実験を開始できません。PCのChromeを通常ウィンドウで開いてください。" })); return;
+      }
+      void navigator.locks.request(LOCK_KEY, { ifAvailable: true }, async lock => {
+        if (disposed) return;
+        if (!lock) { setState(s => ({ ...s, stage: "blocked", message: "別のタブでこのサイトを使用中です。そのタブを閉じてから、このページを再読み込みしてください。" })); return; }
+        const session = new SessionController(setState); controller.current = session;
+        const held = new Promise<void>(resolve => { release = resolve; });
+        void session.init(); await held; session.dispose();
+      }).catch(() => { if (!disposed) setState(s => ({ ...s, stage: "blocked", message: "ブラウザーの排他機能を利用できません。PCのChromeで開き直してください。" })); });
+    }, 0);
+    return () => { disposed = true; clearTimeout(timer); controller.current?.dispose(); controller.current = null; release?.(); };
+  }, []);
+  const p = state.progress;
+  const trial = p?.session?.manifest.trials.find(t => !p.answers.some(a => a.trialId === t.trialId));
+  const small = width < 1024;
+  return <div className="page">
+    <header className="site-header"><span className="wordmark"><span className="brand-mark" aria-hidden="true" />ことばと、休日。</span><span className="edition">A MOMENT TO CONSIDER</span></header>
+    <main>
+      <section className="intro-heading"><p className="eyebrow">言葉の受けとめ方について</p><h1>ひとつの提案を、<br /><span>あなたの視点から。</span></h1></section>
+      {state.config?.testOnly && <p className="test-notice">技術検証専用です。実参加者の募集は行っていません。検証担当者が合成回答を入力してください。</p>}
+      <section className="trial-card" aria-label="実験">
+        {small && <p className="inline-error" role="alert">読みやすく操作するため、PCの広い画面でのご利用をおすすめします。</p>}
+        <div>
+          {state.stage === "intro" && <div className="card-content consent-content">
+            <h2>はじめにお読みください</h2>
+            <p>4つの場面を自分の状況として想像し、あらかじめ作成された提案を2つの項目で評価します。目安は約5分です（所要時間は未検証）。その場でAIや人が応答するものではありません。</p>
+            <p>氏名や連絡先は入力しません。ランダムな参加ID、回答、所要時間、中断・再提示の情報を保存します。回答と再開情報はこのブラウザーにも保持します。</p>
+            <p>開始から24時間以内は同じブラウザーで再開・送信できます。期限後は完了確認もできません。サーバーのデータは開始から30日後に取得対象外となり、毎時の処理で削除します。バックアップや取得したCSVは別途管理されます。</p>
+            <p>途中でページを閉じて中止できます。保存済みの回答は保持期限まで残ります。ホスティング基盤にアクセスログが残る可能性があります。</p>
+            {state.config?.collectionEnabled ? <><p>各場面で、2項目とも1「まったくそう思わない」から7「とてもそう思う」を選び、回答を確定してください。</p><label className="consent-label"><input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />説明を読み、技術検証用の回答を保存することに同意します。</label><button className="primary-button" disabled={!consent || state.busy || !!p} onClick={() => void controller.current?.start()}>同意して始める</button></> : <p role="status">現在は受付を停止しています。研究責任者・問い合わせ先・参加条件・説明同意文などの準備完了後に受付を検討します。</p>}
           </div>}
-
-          {stage === "running" && <HelloTrial onAnswer={onAnswer} onError={onTrialError} />}
-
-          {stage === "saving" && <div className="card-content state-content" role="status">
-            <span className="saving-indicator" aria-hidden="true" />
-            <h2>回答を届けています。</h2>
-            <p>保存が確認できるまで、<br />このページを開いたままお待ちください。</p>
-          </div>}
-
-          {stage === "complete" && <div className="card-content state-content">
-            <span className="success-mark" aria-hidden="true">✓</span>
-            <h2 tabIndex={-1} ref={heading}>回答を保存しました。</h2>
-            <p>ご協力ありがとうございました。<br />このページを閉じていただけます。</p>
-            <button className="secondary-button" onClick={() => setStage("intro")}>もう一度試す</button>
-          </div>}
-
-          {stage === "save-error" && <div className="card-content state-content">
-            <h2 tabIndex={-1} ref={heading}>保存を確認できませんでした。</h2>
-            <p>回答はこのページに残っています。<br />接続をご確認のうえ、もう一度お送りください。</p>
-            <button className="primary-button" onClick={() => { if (pending.current) void save(pending.current); }}>同じ回答を再送する</button>
-            <p className="duration">再読み込みやページを閉じる操作はお待ちください。</p>
-          </div>}
-
-          {stage === "trial-error" && <div className="card-content state-content">
-            <h2 tabIndex={-1} ref={heading}>デモを開始できませんでした。</h2>
-            <p>もう一度、最初からお試しください。</p>
-            <button className="secondary-button" onClick={() => setStage("intro")}>開始画面へ戻る</button>
-          </div>}
-        </section>
-
-        <p className="data-note">接続確認用のデモです。開始すると、ボタンの回答と反応時間をランダムIDとともに保存します。<br className="desktop-break" />氏名などの入力はありません。データは30日経過後に削除されます。</p>
-      </main>
-
-      <footer><span>React + jsPsych</span><span>Cloudflare Workers + D1</span></footer>
-    </div>
-  );
+          {state.stage === "resume" && <div className="card-content"><h2>この端末に進捗が残っています</h2><p>ご自身の進捗であることを確認してから再開してください。</p><button className="primary-button" disabled={state.busy || state.retry} onClick={() => void controller.current?.resume()}>続きから再開する</button><button className="text-button" disabled={state.busy} onClick={() => { if (window.confirm("この端末の進捗を消去します。未送信の回答は失われます。サーバーに保存済みの回答は削除されません。よろしいですか？")) controller.current?.reset(); }}>この端末の進捗を消す</button></div>}
+          {state.stage === "task" && trial && controller.current && <StudyTrial key={trial.trialId} trial={trial} questions={p!.session!.manifest.questions} confirm={controller.current.confirm} advance={controller.current.advance} onError={controller.current.trialError} />}
+          {state.stage === "pending" && <div className="card-content"><h2>回答の保存を確認しています</h2><p>まだ完了ではありません。保存確認まで、このページを開いてお待ちください。</p></div>}
+          {state.stage === "complete" && <div className="card-content" role="status"><h2>ご協力ありがとうございました</h2><p>すべての回答を保存しました。このページを閉じていただけます。</p></div>}
+          {state.stage === "loading" && <div className="card-content" role="status">開始の準備をしています。</div>}
+          {state.message && <div className="notice" role="alert"><p>{state.message}</p></div>}
+          {state.retry && <div className="retry"><button className="secondary-button" disabled={state.busy || performance.now() < state.retryAt} onClick={() => void controller.current?.retry()}>接続を確認して再送する</button>{performance.now() < state.retryAt && <p>時間をおいてから再送できます。</p>}</div>}
+        </div>
+      </section>
+      <p className="data-note">PCのChromeでの利用を想定しています。同じブラウザーから24時間以内に再開できます。</p>
+    </main>
+    <footer><span>ことばと、休日。</span><span>4つの場面を想像する</span></footer>
+  </div>;
 }

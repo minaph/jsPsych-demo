@@ -58,6 +58,23 @@ footer { border-top: 1px solid var(--line); padding: 20px 0 28px; display: flex;
 .success-mark { display: grid; place-items: center; background: #e8eedb; width: 54px; height: 54px; border-radius: 50%; color: var(--green); font-size: 24px; margin-bottom: 21px; }
 .saving-indicator { width: 28px; height: 28px; border: 2px solid #dfe5d8; border-top-color: var(--green); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 24px; }
 .mobile-break { display: none; }
+.consent-content { text-align: left; align-items: stretch; }
+.consent-content > p { font-size: 14px; }
+.consent-label { margin-top: 24px; font-size: 14px; line-height: 1.8; display: flex; gap: 12px; }
+input { accent-color: var(--green); }
+input:focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+.test-notice { margin-bottom: 20px; padding: 16px; border: 1px dashed var(--green); font-size: 13px; line-height: 1.8; }
+.situation { text-align: left; line-height: 1.9; margin: 20px 0; }
+blockquote { text-align: left; margin: 20px 0 28px; padding: 20px; border-left: 3px solid var(--green); background: #edf1e6; line-height: 1.9; }
+.jspsych-survey-likert-statement { display: block; font-size: 15px; text-align: left; line-height: 1.8; margin: 24px 0 16px; }
+.jspsych-survey-likert-opts { display: flex; list-style: none; margin: 0 0 32px; padding: 0; }
+.jspsych-survey-likert-opts li { flex: 1; text-align: center; font-size: 12px; line-height: 1.6; }
+.jspsych-survey-likert-opts input { display: block; margin: 8px auto 12px; width: 20px; height: 20px; }
+.jspsych-survey-likert-opt-label { display: block; cursor: pointer; }
+.notice, .retry { padding: 16px 24px; font-size: 14px; line-height: 1.9; }
+.notice { color: #7a3524; }
+.retry { text-align: center; padding-bottom: 28px; }
+.retry .secondary-button { margin-top: 0; }
 @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (max-width: 600px) {
