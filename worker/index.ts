@@ -1,7 +1,10 @@
 import { isHelloAnswer } from "../shared/contracts";
+import { retain, studyApi } from "./study-api";
 
 interface Env {
   DB: D1Database;
+  COLLECTION_ENABLED?: string;
+  TEST_ONLY?: string;
 }
 
 interface AnswerRow {
@@ -52,6 +55,7 @@ async function readBody(request: Request): Promise<unknown> {
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
+    if (env.COLLECTION_ENABLED !== undefined || (url.pathname !== "/api/health" && url.pathname !== "/api/responses")) return studyApi(request, env);
     try {
       if (url.pathname === "/api/health") {
         if (request.method !== "GET") return json({ error: "method_not_allowed" }, 405);
@@ -99,6 +103,7 @@ export default {
   },
 
   async scheduled(_controller, env): Promise<void> {
+    await retain(env.DB);
     await env.DB.prepare("DELETE FROM hello_responses WHERE delete_after <= unixepoch()").run();
   },
 } satisfies ExportedHandler<Env>;
