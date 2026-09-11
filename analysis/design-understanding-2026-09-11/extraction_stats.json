@@ -1,0 +1,13 @@
+{
+  "sessions": 10,
+  "user_occurrences": 27,
+  "unique_user_texts": 20,
+  "question_calls": 28,
+  "questions": 74,
+  "answer_status_counts": {
+    "empty_answers": 3,
+    "answered": 65,
+    "aborted": 6
+  },
+  "injected_context_occurrences_excluded": 11
+}

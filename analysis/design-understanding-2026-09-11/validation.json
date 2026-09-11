@@ -1,0 +1,38 @@
+{
+  "checked_at_jst": "2026-09-11T10:44:37.671797+09:00",
+  "code_head": "ecac4387ef4b44efeb1b491514c8a23b452242fe",
+  "source_prefix_hashes": "passed",
+  "instruction_verbatim_matches": 27,
+  "question_options_answer_verbatim_matches": 74,
+  "history_jsonl_exact_session_and_text_multiset_matches": 26,
+  "history_jsonl_matches_after_named_skill_link_normalization": 27,
+  "history_text_variants": [
+    {
+      "instruction_id": "U003",
+      "session_id": "01a08c35-6bf8-70b0-a13d-4458b988500a",
+      "reason": "history.jsonl expands a named skill to a local Markdown link",
+      "history_text": "ここにreact.jsと jsPsychを用いたデモ用のサイトを作成します\n開発要件を決めていきます\nまず、jsPsychとreactを用いた実験用サイトについて、公式や有志が作成したデモなどを観察し、どの程度のものが作りやすいのか検討してください\n\nその後、日本大学の大澤正彦研究室の研究について簡単にリサーチし、100-500名程度を想定した小規模ウェブ実験を企画していきます\nuse [$grade-informed-etd-decision-support](/Users/minaph/Projects/grade-informed-etd-decision-support/SKILL.md), request_user_input (not request_user_input_async)",
+      "rollout_text": "ここにreact.jsと jsPsychを用いたデモ用のサイトを作成します\n開発要件を決めていきます\nまず、jsPsychとreactを用いた実験用サイトについて、公式や有志が作成したデモなどを観察し、どの程度のものが作りやすいのか検討してください\n\nその後、日本大学の大澤正彦研究室の研究について簡単にリサーチし、100-500名程度を想定した小規模ウェブ実験を企画していきます\nuse $grade-informed-etd-decision-support, request_user_input (not request_user_input_async)",
+      "occurrences": 1
+    }
+  ],
+  "thread_history_db_user_message_count_matches": 27,
+  "instruction_summary_coverage": "all 27 occurrences",
+  "decision_summary_evidence_ids_and_file_lines": "passed",
+  "markdown_links_fences_evidence_ids": "passed",
+  "tsv_single_physical_line_per_record": "passed",
+  "stats": {
+    "sessions": 10,
+    "user_occurrences": 27,
+    "unique_user_texts": 20,
+    "question_calls": 28,
+    "questions": 74,
+    "answer_status_counts": {
+      "empty_answers": 3,
+      "answered": 65,
+      "aborted": 6
+    },
+    "injected_context_occurrences_excluded": 11
+  },
+  "application_tests_rerun": false
+}
